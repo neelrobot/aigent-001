@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Text Summarizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .info-box {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            resize: vertical;
+        }
+
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            min-height: 120px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #28a745;
+            display: none;
+        }
+
+        .result-text {
+            line-height: 1.6;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .error {
+            background: #fff5f5;
+            border-left-color: #dc3545;
+            color: #dc3545;
+        }
+
+        .copy-btn {
+            margin-top: 15px;
+            background: #28a745;
+            font-size: 14px;
+            padding: 8px 16px;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+        }
+
+        .word-count {
+            font-size: 14px;
+            color: #666;
+            text-align: right;
+            margin-top: 5px;
+        }
+
+        .tab-btn {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e1e5e9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: #e9ecef;
+        }
+
+        .tab-content {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #bulletCount {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Website Summarizer</h1>
+        
+        <div class="info-box">
+            <strong>How to get your API key:</strong> Visit <a href="https://ai.google.dev/" target="_blank">Google AI Studio</a> and create a free account to get your Gemini API key. The free tier includes 1,500 requests per day.
+        </div>
+
+        <div class="form-group">
+            <label>Input Method:</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button type="button" class="tab-btn active" onclick="switchTab('text')">📝 Text Input</button>
+                <button type="button" class="tab-btn" onclick="switchTab('url')">🌐 Web Scraping</button>
+            </div>
+        </div>
+
+        <div id="textTab" class="tab-content">
+            <div class="form-group">
+                <label for="inputText">Text to Summarize:</label>
+                <textarea id="inputText" placeholder="Paste your text here..."></textarea>
+                <div class="word-count" id="wordCount">0 words</div>
+            </div>
+        </div>
+
+        <div id="urlTab" class="tab-content" style="display: none;">
+            <div class="form-group">
+                <label for="urlInput">Website URL:</label>
+                <input type="url" id="urlInput" placeholder="https://example.com/article">
+                <div style="font-size: 14px; color: #666; margin-top: 5px;">
+                    Note: Due to CORS restrictions, some websites may not work directly. Consider using the Python backend option below.
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="scrapedText">Scraped Content:</label>
+                <textarea id="scrapedText" placeholder="Scraped content will appear here..." readonly></textarea>
+                <div class="word-count" id="scrapedWordCount">0 words</div>
+            </div>
+            <button type="button" onclick="scrapeWebsite()" id="scrapeBtn" style="margin-bottom: 20px;">
+                🔍 Scrape Website
+            </button>
+        </div>
+
+        <div class="controls">
+            <div class="form-group">
+                <label for="summaryLength">Summary Length:</label>
+                <select id="summaryLength">
+                    <option value="brief">Brief (2-3 sentences)</option>
+                    <option value="medium" selected>Medium (1 paragraph)</option>
+                    <option value="detailed">Detailed (2-3 paragraphs)</option>
+                    <option class="bullet" value="bullets">Bullet points</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="maxWords" id="maxWordsLabel">Max Words (optional):</label>
+                <input type="text" id="maxWords" placeholder="e.g., 100">
+                <input type="text" id="bulletCount" placeholder="e.g., 5">
+            </div>
+        </div>
+
+        <button id="summarizeBtn" onclick="summarizeText()">
+            📝 Summarize Text
+        </button>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Generating summary...</p>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <h3>Summary:</h3>
+            <div class="result-text" id="resultText"></div>
+            <button class="copy-btn" onclick="copyToClipboard()">📋 Copy Summary</button>
+        </div>
+    <script>
+        let currentTab = 'text';
+
+        // Handle summary length change
+        document.getElementById('summaryLength').addEventListener('change', function() {
+            const summaryType = this.value;
+            const maxWordsInput = document.getElementById('maxWords');
+            const bulletCountSelect = document.getElementById('bulletCount');
+            const label = document.getElementById('maxWordsLabel');
+        
+            if (summaryType === 'bullets') {
+                // Show bullet count selector, hide max words input
+                maxWordsInput.style.display = 'none';
+                bulletCountSelect.style.display = 'block';
+                label.textContent = 'Number of bullet points:';
+            } else {
+                // Show max words input, hide bullet count selector
+                maxWordsInput.style.display = 'block';
+                bulletCountSelect.style.display = 'none';
+                label.textContent = 'Max Words (optional):';
+            }
+        });
+
+        // Tab switching
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`button[onclick="switchTab('${tab}')"]`).classList.add('active');
+            
+            // Show/hide content
+            document.getElementById('textTab').style.display = tab === 'text' ? 'block' : 'none';
+            document.getElementById('urlTab').style.display = tab === 'url' ? 'block' : 'none';
+        }
+
+        // Web scraping function
+        async function scrapeWebsite() {
+            const url = document.getElementById('urlInput').value.trim();
+            const scrapedTextArea = document.getElementById('scrapedText');
+            const scrapeBtn = document.getElementById('scrapeBtn');
+
+            if (!url) {
+                alert('Please enter a URL to scrape.');
+                return;
+            }
+
+            scrapeBtn.disabled = true;
+            scrapeBtn.textContent = '🔄 Scraping...';
+            scrapedTextArea.value = 'Scraping content...';
+
+            try {
+                const response = await fetch('http://localhost:5000/scrape', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    scrapedTextArea.value = data.text;
+                    updateWordCount(data.text, 'scrapedWordCount');
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                scrapedTextArea.value = `Error: ${error.message}`;
+            } finally {
+                scrapeBtn.disabled = false;
+                scrapeBtn.textContent = '🔍 Scrape Website';
+            }
+        }
+/*
+        // Extract text from HTML
+        function extractTextFromHTML(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Remove script, style, nav, footer elements
+            const elementsToRemove = doc.querySelectorAll('script, style, nav, footer, header, aside, .advertisement, .ads');
+            elementsToRemove.forEach(el => el.remove());
+            
+            // Try to find main content areas
+            const contentSelectors = [
+                'article', 
+                'main', 
+                '[class*="content"]', 
+                '[class*="article"]', 
+                '[id*="content"]',
+                '.post-content',
+                '.entry-content'
+            ];
+            
+            let mainContent = null;
+            for (const selector of contentSelectors) {
+                const element = doc.querySelector(selector);
+                if (element && element.textContent.trim().length > 200) {
+                    mainContent = element;
+                    break;
+                }
+            }
+            
+            // If no main content found, use body
+            const textSource = mainContent || doc.body || doc;
+            
+            // Extract and clean text
+            let text = textSource.textContent || textSource.innerText || '';
+            
+            // Clean up whitespace and formatting
+            text = text.replace(/\s+/g, ' ')
+                      .replace(/\n\s*\n/g, '\n')
+                      .trim();
+            
+            return text;
+        }
+*/
+        // Word count function
+        function updateWordCount(text, elementId) {
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            document.getElementById(elementId).textContent = words + ' words';
+        }
+
+        // Word counter for manual text input
+        document.getElementById('inputText').addEventListener('input', function() {
+            updateWordCount(this.value, 'wordCount');
+        });
+
+        // Word counter for scraped text
+        document.getElementById('scrapedText').addEventListener('input', function() {
+            updateWordCount(this.value, 'scrapedWordCount');
+        });
+
+        async function summarizeText() {
+            const apiKey = "AIzaSyDuGzgg7jPpU9eyKY2p3L3Svoo6Xx-6EJg";
+            let inputText = '';
+            
+            // Get text based on current tab
+            if (currentTab === 'text') {
+                inputText = document.getElementById('inputText').value.trim();
+            } else {
+                inputText = document.getElementById('scrapedText').value.trim();
+            }
+            
+            const summaryLength = document.getElementById('summaryLength').value;
+            const maxWords = document.getElementById('maxWords').value.trim();
+
+            // Validation
+            if (!inputText) {
+                showError(currentTab === 'text' ? 'Please enter some text to summarize.' : 'Please scrape a website first or enter text manually.');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('summarizeBtn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultSection').style.display = 'none';
+
+            try {
+                // Build prompt based on settings
+                let prompt = buildPrompt(inputText, summaryLength, maxWords);
+
+                // Call Gemini API
+                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + apiKey, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: prompt
+                            }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.3,
+                            maxOutputTokens: maxWords ? Math.min(parseInt(maxWords) * 2, 1000) : 500
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                    const summary = data.candidates[0].content.parts[0].text.trim();
+                    showResult(summary);
+                } else {
+                    throw new Error('No summary generated. Please try again.');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error: ' + error.message);
+            } finally {
+                // Hide loading
+                document.getElementById('summarizeBtn').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function buildPrompt(text, length, maxWords) {
+            let prompt = '';
+            
+            switch(length) {
+                case 'brief':
+                    prompt = 'Summarize the following text in exactly 2-3 clear sentences:';
+                    break;
+                case 'medium':
+                    prompt = 'Summarize the following text in one concise paragraph:';
+                    break;
+                case 'detailed':
+                    prompt = 'Provide a detailed summary of the following text in 2-3 paragraphs:';
+                    break;
+                case 'bullets':
+                    const bulletCount = document.getElementById('bulletCount').value;
+                    prompt = `Summarize the following text as ${bulletCount} bullet points separated with 1 line break between each point with key takeaways: `;
+                    break;
+            }
+
+            if (maxWords && length !== 'bullets') {
+                prompt += ` Keep it under ${maxWords} words.`;
+            }   
+
+            return prompt + '\n\n' + text;
+        }
+
+        function showResult(summary) {
+            document.getElementById('resultText').textContent = summary;
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('resultSection').classList.remove('error');
+        }
+
+        function showError(message) {
+            document.getElementById('resultText').textContent = message;
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('resultSection').classList.add('error');
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('resultText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
